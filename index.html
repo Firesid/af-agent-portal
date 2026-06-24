@@ -695,13 +695,114 @@ function runUplineSearch() {
     document.getElementById('pag-usearch').style.display = 'none';
     return;
   }
-  currentUplineSearch = ALL.filter(r => r[2].toLowerCase().includes(q));
-  render('usearch', currentUplineSearch, '', 1);
+
+  // Step 1: direct matches — agent's immediate upline contains the query
+  const directSet = new Set();
+  const directRows = [];
+  ALL.forEach(r => {
+    if (r[2].toLowerCase().includes(q)) {
+      const key = r[0].toLowerCase() + '|' + r[1];
+      directSet.add(key);
+      // r[5] = hop label; 'direct' means no via annotation
+      directRows.push([r[0], r[1], r[2], r[3], r[4], 'direct']);
+    }
+  });
+
+  // Step 2: transitive matches via CHAINS
+  // Walk every agent's chain; if any hop AFTER the first hop has an upline
+  // containing the query, and the agent is not already in directSet, include them.
+  const indirectRows = [];
+  Object.keys(CHAINS).forEach(agentKey => {
+    const chain = CHAINS[agentKey];
+    if (!chain || chain.length < 2) return; // no multi-hop chain
+    const baseRow = chain[0]; // the original agent's first hop row
+    const rowKey  = baseRow[0].toLowerCase() + '|' + baseRow[1];
+    if (directSet.has(rowKey)) return; // already included as direct
+
+    // Check hops beyond the first for the searched upline
+    for (let i = 1; i < chain.length; i++) {
+      const hopUpline = chain[i][2];
+      if (hopUpline.toLowerCase().includes(q)) {
+        // The intermediate upline is chain[i-1][2] (who this agent went to first)
+        const viaLabel = chain[i - 1][2];
+        indirectRows.push([
+          baseRow[0],  // agent name
+          baseRow[1],  // date
+          baseRow[2],  // direct upline (hop 1)
+          baseRow[3],  // carriers
+          baseRow[4],  // source
+          'via: ' + viaLabel  // hop annotation
+        ]);
+        break; // only add once per agent
+      }
+    }
+  });
+
+  currentUplineSearch = [...directRows, ...indirectRows];
+  renderUplineSearch(currentUplineSearch, q, 1);
 }
 
 function clearUplineSearch() {
   document.getElementById('upline-search').value = '';
   runUplineSearch();
+}
+
+// Dedicated renderer for upline search — supports the hop-label column (r[5])
+function renderUplineSearch(data, hl, page) {
+  const PAGE_SIZE = 50;
+  const tbody   = document.getElementById('tbody-usearch');
+  const countEl = document.getElementById('count-usearch');
+  const pagEl   = document.getElementById('pag-usearch');
+
+  countEl.textContent = data.length === 0 ? 'No results'
+    : `${data.length.toLocaleString()} result${data.length !== 1 ? 's' : ''}`;
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="no-results"><span class="ico">😕</span>No matching records found.</td></tr>';
+    pagEl.style.display = 'none';
+    return;
+  }
+
+  const totalPages = Math.ceil(data.length / PAGE_SIZE);
+  const pg = Math.max(1, Math.min(page, totalPages));
+  const start = (pg - 1) * PAGE_SIZE;
+  const slice = data.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = slice.map(r => {
+    const hopLabel = r[5] || 'direct';
+    const isDirect = hopLabel === 'direct';
+    const aH = hl ? hlText(r[0], hl) : esc(r[0]);
+    // For direct rows, highlight the upline. For indirect, show upline + via badge.
+    const uplineDisplay = isDirect
+      ? (hl ? hlText(r[2], hl) : esc(r[2]))
+      : `${esc(r[2])} <span style="display:inline-block;margin-left:5px;padding:1px 6px;border-radius:10px;font-size:0.72rem;background:#e9d8fd;color:#553c9a;white-space:nowrap;" title="Business eventually flows to searched upline through this intermediate">↪ ${esc(hopLabel.replace('via: ',''))}</span>`;
+    const sc = r[4] === 'Resign' ? 'src-resign' : 'src-term';
+    return `<tr>
+      <td class="td-agent">${aH}</td>
+      <td class="td-date">${esc(r[1])}</td>
+      <td class="td-upline">${uplineDisplay}</td>
+      <td class="td-carr">${esc(r[3])}</td>
+      <td><span class="src-tag ${sc}">${esc(r[4])}</span></td>
+    </tr>`;
+  }).join('');
+
+  if (totalPages <= 1) {
+    pagEl.style.display = 'none';
+  } else {
+    pagEl.style.display = 'flex';
+    const sp = Math.max(1, pg - 2), ep = Math.min(totalPages, pg + 2);
+    let html = `<div class="pag-info">Showing ${start+1}–${Math.min(start+PAGE_SIZE, data.length)} of ${data.length.toLocaleString()}</div><div class="pag-btns">`;
+    html += `<button class="pag-btn" ${pg===1?'disabled':''} onclick="goPageUpline(${pg-1})">← Prev</button>`;
+    for (let p = sp; p <= ep; p++)
+      html += `<button class="pag-btn ${p===pg?'active':''}" onclick="goPageUpline(${p})">${p}</button>`;
+    html += `<button class="pag-btn" ${pg===totalPages?'disabled':''} onclick="goPageUpline(${pg+1})">Next →</button></div>`;
+    pagEl.innerHTML = html;
+  }
+}
+
+function goPageUpline(page) {
+  const hl = document.getElementById('upline-search').value.trim().toLowerCase();
+  renderUplineSearch(currentUplineSearch, hl, page);
 }
 
 
@@ -1104,7 +1205,11 @@ function goPage(tab, page) {
            : tab === 'all'     ? document.getElementById('all-search').value.trim().toLowerCase()
            : tab === 'usearch' ? document.getElementById('upline-search').value.trim().toLowerCase()
            : '';
-  render(tab, data, hl, page);
+  if (tab === 'usearch') {
+    renderUplineSearch(data, hl, page);
+  } else {
+    render(tab, data, hl, page);
+  }
 }
 
 // ── SORT ──────────────────────────────────────────────────────
@@ -1137,7 +1242,11 @@ function doSort(tab, col) {
            : tab === 'all'     ? document.getElementById('all-search').value.trim().toLowerCase()
            : tab === 'usearch' ? document.getElementById('upline-search').value.trim().toLowerCase()
            : '';
-  render(tab, data, hl, 1);
+  if (tab === 'usearch') {
+    renderUplineSearch(data, hl, 1);
+  } else {
+    render(tab, data, hl, 1);
+  }
 }
 
 // ── EXPORT ────────────────────────────────────────────────────
