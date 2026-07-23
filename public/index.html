@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AF Agent Reassignment Portal</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <h1>🏢 Appreciation Financial — Agent Reassignment Portal</h1>
+  <p>Internal back-office tool &nbsp;·&nbsp; Agent lookups &amp; upline filters &nbsp;·&nbsp; Uplines resolved from Agent Statuses</p>
+  <div class="badge-row">
+    <span class="badge" id="b1">⏳ Loading…</span>
+    <span class="badge" id="b2">⏳ Loading…</span>
+    <span class="badge" id="b3">⏳ Loading…</span>
+  </div>
+</header>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab(this,'search')">🔍 Agent Lookup</button>
+  <button class="tab-btn" onclick="switchTab(this,'resign')">📋 Resign — Upline Filter</button>
+  <button class="tab-btn" onclick="switchTab(this,'term')">⏱️ 180 Term — Upline Filter</button>
+  <button class="tab-btn" onclick="switchTab(this,'all')">📊 All Records</button>
+</nav>
+
+<main class="main">
+
+  <!-- TAB 1: AGENT LOOKUP -->
+  <div id="tab-search" class="panel active">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="card">
+      <div class="card-header blue">
+        <span class="icon">🔍</span>
+        <h2>Agent Lookup — Search Across Both Sheets</h2>
+      </div>
+      <div class="card-body">
+        <div class="control-row">
+          <label>Search agent name:</label>
+          <input type="text" id="agent-search" class="search-input"
+                 placeholder="Type any part of an agent name…" oninput="runSearch()" autocomplete="off">
+          <button class="clear-btn" onclick="clearSearch()">✕ Clear</button>
+          <span class="result-count" id="count-search">—</span>
+          <button class="export-btn" onclick="exportCSV(currentSearch,'agent_lookup')">⬇ Export CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl-blue" id="tbl-search">
+            <thead><tr>
+              <th onclick="doSort('search',0)">Agent Name <span class="si">⇅</span></th>
+              <th onclick="doSort('search',1)">Date <span class="si">⇅</span></th>
+              <th onclick="doSort('search',2)">Upline <span class="si">⇅</span></th>
+              <th>Carriers</th>
+              <th onclick="doSort('search',4)">Source <span class="si">⇅</span></th>
+            </tr></thead>
+            <tbody id="tbody-search">
+              <tr><td colspan="5" class="no-results"><span class="ico">🔍</span>Start typing to search agents…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-row" id="pag-search" style="display:none"></div>
+      </div>
+    </div>
+
+  <!-- UPLINE LOOKUP CARD -->
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(90deg,#5a2d82,#7b4fa6);">
+        <span class="icon">👥</span>
+        <h2>Upline Lookup — Find All Agents Under an Upline</h2>
+      </div>
+      <div class="card-body">
+        <div class="control-row">
+          <label>Search upline name:</label>
+          <input type="text" id="upline-search" class="search-input"
+                 placeholder="Type any part of an upline name…" oninput="runUplineSearch()" autocomplete="off">
+          <button class="clear-btn" onclick="clearUplineSearch()">✕ Clear</button>
+          <span class="result-count" id="count-usearch">—</span>
+          <button class="export-btn" style="background:#5a2d82;" onmouseover="this.style.background='#44216b'" onmouseout="this.style.background='#5a2d82'" onclick="exportCSV(currentUplineSearch,'upline_lookup')">⬇ Export CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table id="tbl-usearch" class="tbl-purple">
+            <thead><tr>
+              <th onclick="doSort('usearch',0)">Agent Name <span class="si">⇅</span></th>
+              <th onclick="doSort('usearch',1)">Date <span class="si">⇅</span></th>
+              <th>Upline</th>
+              <th>Carriers</th>
+              <th onclick="doSort('usearch',4)">Source <span class="si">⇅</span></th>
+            </tr></thead>
+            <tbody id="tbody-usearch">
+              <tr><td colspan="5" class="no-results"><span class="ico">👥</span>Start typing an upline name to find their agents…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-row" id="pag-usearch" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- REASSIGNMENT TRAIL CARD -->
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(90deg,#744210,#b7791f);">
+        <span class="icon">🔗</span>
+        <h2>Reassignment Trail — Follow an Agent's Business Through All Hops</h2>
+      </div>
+      <div class="card-body">
+        <div class="control-row">
+          <label>Search agent name:</label>
+          <input type="text" id="trail-search" class="search-input"
+                 placeholder="Type an agent name to trace their trail…"
+                 oninput="runTrailSearch()" autocomplete="off">
+          <button class="clear-btn" onclick="clearTrailSearch()">✕ Clear</button>
+          <span class="result-count" id="count-trail">—</span>
+        </div>
+
+        <!-- Suggestion dropdown -->
+        <div id="trail-suggestions" style="display:none;border:1px solid #e2e8f0;border-radius:8px;max-height:220px;overflow-y:auto;margin-bottom:16px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.1);">
+        </div>
+
+        <!-- Hop filter -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:.85rem;font-weight:600;color:#4a5568;">Filter by hop count:</span>
+            <div class="hop-filter-btns">
+              <button class="hop-filter-btn active" onclick="setHopFilter('all',this)">All Agents</button>
+              <button class="hop-filter-btn" onclick="setHopFilter(1,this)">1 Hop <span class="hop-filter-count" id="hfc-1"></span></button>
+              <button class="hop-filter-btn" onclick="setHopFilter(2,this)">2 Hops <span class="hop-filter-count" id="hfc-2"></span></button>
+            </div>
+            <span class="result-count" id="count-hop-filter" style="display:none;">—</span>
+            <button class="export-btn" id="hop-export-btn" style="background:#744210;display:none;"
+                    onmouseover="this.style.background='#5c3207'" onmouseout="this.style.background='#744210'"
+                    onclick="exportHopFilter()">⬇ Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Hop filter bulk results table -->
+        <div id="hop-filter-result" style="display:none;margin-bottom:24px;">
+          <div class="tbl-wrap">
+            <table id="tbl-hop-filter" class="tbl-trail">
+              <thead><tr>
+                <th>Agent Name</th>
+                <th>Date</th>
+                <th>Hop 1 → Upline</th>
+                <th>Hop 2 → Final</th>
+                <th>Source</th>
+                <th style="text-align:center;">View Trail</th>
+              </tr></thead>
+              <tbody id="tbody-hop-filter"></tbody>
+            </table>
+          </div>
+          <div class="pag-row" id="pag-hop-filter" style="display:none"></div>
+        </div>
+
+        <!-- Chain visualiser -->
+        <div id="trail-result" style="display:none;">
+
+          <!-- Linear hop diagram -->
+          <div id="trail-chain" style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:0;margin-bottom:24px;"></div>
+
+          <!-- Detail table -->
+          <div class="tbl-wrap">
+            <table id="tbl-trail" class="tbl-trail">
+              <thead><tr>
+                <th>Hop</th>
+                <th>Agent / Business</th>
+                <th>Date</th>
+                <th>Reassigned To</th>
+                <th>Carriers</th>
+                <th>Source</th>
+              </tr></thead>
+              <tbody id="tbody-trail"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="trail-empty" style="text-align:center;padding:32px 20px;color:#a0aec0;">
+          <span style="font-size:2.5rem;display:block;margin-bottom:10px;">🔗</span>
+          Search for an agent above to trace their full reassignment trail.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: RESIGN UPLINE FILTER -->
+  <div id="tab-resign" class="panel">
+    <div class="card">
+      <div class="card-header green">
+        <span class="icon">📋</span>
+        <h2>Resign Sheet — Filter by Upline</h2>
+      </div>
+      <div class="card-body">
+        <div class="control-row">
+          <label>Select upline:</label>
+          <select id="sel-resign" class="select-input" onchange="runUpline('resign')">
+            <option value="">— Choose an upline —</option>
+          </select>
+          <button class="clear-btn" onclick="resetUpline('resign')">✕ Clear</button>
+          <span class="result-count" id="count-resign">—</span>
+          <button class="export-btn green" onclick="exportCSV(currentResign,'resign_upline')">⬇ Export CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl-green" id="tbl-resign">
+            <thead><tr>
+              <th onclick="doSort('resign',0)">Agent Name <span class="si">⇅</span></th>
+              <th onclick="doSort('resign',1)">Resigned Date <span class="si">⇅</span></th>
+              <th>Upline</th>
+              <th>Carriers</th>
+              <th>Source</th>
+            </tr></thead>
+            <tbody id="tbody-resign">
+              <tr><td colspan="5" class="no-results"><span class="ico">📋</span>Select an upline to view their agents.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-row" id="pag-resign" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: 180 TERM UPLINE FILTER -->
+  <div id="tab-term" class="panel">
+    <div class="card">
+      <div class="card-header orange">
+        <span class="icon">⏱️</span>
+        <h2>180 Term Worksheet — Filter by Upline</h2>
+      </div>
+      <div class="card-body">
+        <div class="control-row">
+          <label>Select upline:</label>
+          <select id="sel-term" class="select-input" onchange="runUpline('term')">
+            <option value="">— Choose an upline —</option>
+          </select>
+          <button class="clear-btn" onclick="resetUpline('term')">✕ Clear</button>
+          <span class="result-count" id="count-term">—</span>
+          <button class="export-btn orange" onclick="exportCSV(currentTerm,'term180_upline')">⬇ Export CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl-orange" id="tbl-term">
+            <thead><tr>
+              <th onclick="doSort('term',0)">Agent Name <span class="si">⇅</span></th>
+              <th onclick="doSort('term',1)">Deact. Date <span class="si">⇅</span></th>
+              <th>Upline</th>
+              <th>Policy / Carriers</th>
+              <th>Source</th>
+            </tr></thead>
+            <tbody id="tbody-term">
+              <tr><td colspan="5" class="no-results"><span class="ico">⏱️</span>Select an upline to view their agents.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-row" id="pag-term" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: ALL RECORDS -->
+  <div id="tab-all" class="panel">
+    <div class="card">
+      <div class="card-header blue">
+        <span class="icon">📊</span>
+        <h2>All Records — Combined View</h2>
+      </div>
+      <div class="card-body">
+        <div class="control-row">
+          <label>Search:</label>
+          <input type="text" id="all-search" class="search-input"
+                 placeholder="Search agent, upline, carriers…" oninput="runAll()" autocomplete="off">
+          <select id="all-src" class="select-input" style="max-width:160px" onchange="runAll()">
+            <option value="">All Sources</option>
+            <option value="Resign">Resign Only</option>
+            <option value="180 Term">180 Term Only</option>
+          </select>
+          <button class="clear-btn" onclick="clearAll()">✕ Clear</button>
+          <span class="result-count" id="count-all">—</span>
+          <button class="export-btn" onclick="exportCSV(currentAll,'all_records')">⬇ Export CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl-blue" id="tbl-all">
+            <thead><tr>
+              <th onclick="doSort('all',0)">Agent Name <span class="si">⇅</span></th>
+              <th onclick="doSort('all',1)">Date <span class="si">⇅</span></th>
+              <th onclick="doSort('all',2)">Upline <span class="si">⇅</span></th>
+              <th>Carriers</th>
+              <th onclick="doSort('all',4)">Source <span class="si">⇅</span></th>
+            </tr></thead>
+            <tbody id="tbody-all">
+              <tr><td colspan="5" class="no-results"><span class="ico">📊</span>Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pag-row" id="pag-all" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="portal.js"></script>
+</body>
+</html>
