@@ -1,8 +1,10 @@
 // ── DATA ──────────────────────────────────────────────────────
 let RESIGN = [], TERM = [], ALL = [], CHAINS = {}, UP_RESIGN = [], UP_TERM = [];
 
+const DATA_URL = 'https://storage.googleapis.com/af-agent-portal-data/data.json';
+
 async function loadData() {
-  const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+  const res = await fetch(DATA_URL + '?t=' + Date.now(), { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load data.json: ' + res.status);
   const data = await res.json();
   RESIGN = data.RESIGN || [];
