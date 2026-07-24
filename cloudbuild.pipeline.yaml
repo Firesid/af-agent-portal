@@ -1,0 +1,5 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.pipeline', '-t', 'us-central1-docker.pkg.dev/af-agent-portal/cloud-run-source-deploy/af-agent-portal-refresh', '.']
+images:
+  - 'us-central1-docker.pkg.dev/af-agent-portal/cloud-run-source-deploy/af-agent-portal-refresh'

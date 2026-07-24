@@ -196,9 +196,21 @@ def build_chains(records, upline_af_for_record, af_to_index):
     return chains
 
 
+def upload_to_gcs(bucket_name, blob_name, payload_bytes):
+    """Lazy import so plain local runs don't need google-cloud-storage installed."""
+    from google.cloud import storage
+
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_name)
+    blob.cache_control = "public, max-age=60"
+    blob.upload_from_string(payload_bytes, content_type="application/json")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default="public/data.json")
+    parser.add_argument("--out", default="public/data.json", help="local file to write (skipped if --bucket is set)")
+    parser.add_argument("--bucket", default=None, help="if set, upload data.json to this GCS bucket instead of writing locally")
     parser.add_argument("--report", action="store_true", help="print resolution stats to stderr")
     args = parser.parse_args()
 
@@ -230,11 +242,18 @@ def main():
         "UP_TERM": up_term,
     }
 
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False)
+    payload = json.dumps(out, ensure_ascii=False).encode("utf-8")
+
+    if args.bucket:
+        upload_to_gcs(args.bucket, "data.json", payload)
+        dest = f"gs://{args.bucket}/data.json"
+    else:
+        with open(args.out, "wb") as f:
+            f.write(payload)
+        dest = args.out
 
     print(
-        f"[build_data] wrote {args.out}: {len(resign)} resign, {len(term)} term, "
+        f"[build_data] wrote {dest}: {len(resign)} resign, {len(term)} term, "
         f"{len(chains)} chains, {len(up_resign)} resign uplines, {len(up_term)} term uplines",
         file=sys.stderr,
     )
